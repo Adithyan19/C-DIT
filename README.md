@@ -1,42 +1,57 @@
-# sv
+# KrishiRakshak — Crop Disease Advisor
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+AI-Powered Agricultural Advisory System using FastAPI, SvelteKit, and Supabase.
 
-## Creating a project
+## Project Structure
 
-If you're seeing this, you've probably already done this step. Congrats!
+- `backend/`: Python FastAPI application
+  - `app/`: Core application logic
+    - `routers/`: API endpoints (`analyze`, `chat`, `feedback`)
+    - `services/`: RAG pipeline, Supabase client, and AI model placeholders
+    - `models/`: Pydantic data models
+    - `data/`: Disease knowledge base
+  - `requirements.txt`: Python dependencies
+  - `supabase_schema.sql`: Database schema for Supabase
+- `src/`: SvelteKit frontend
+  - `routes/`: Page routes (`/`, `/analyze`, `/history`, `/about`)
+  - `lib/`: Shared components, stores, and API client
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## Setup & Development
 
-To recreate this project with the same configuration:
+### Backend (Python/FastAPI)
 
-```sh
-# recreate this project
-pnpm dlx sv create --template minimal --types ts --add prettier tailwindcss="plugins:forms" eslint --install pnpm C-DIT
-```
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Configure environment variables in `.env`:
+   ```env
+   PORT=3001
+   CORS_ORIGIN=http://localhost:5173
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_KEY=your_supabase_key
+   ```
+4. Start the server:
+   ```bash
+   python -m app.main
+   ```
 
-## Developing
+### Frontend (SvelteKit)
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+1. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+2. Start the development server:
+   ```bash
+   pnpm dev
+   ```
+3. Open `http://localhost:5173`.
 
-```sh
-npm run dev
+## Database Setup
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Run the SQL provided in `backend/supabase_schema.sql` in your Supabase SQL Editor to create the required tables for sessions, messages, and results.

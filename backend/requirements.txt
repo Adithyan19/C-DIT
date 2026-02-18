@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+postgrest
+httpx
+pydantic-settings
+watchfiles
