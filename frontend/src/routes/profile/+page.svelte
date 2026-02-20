@@ -127,7 +127,7 @@
                         id="location"
                         type="text"
                         bind:value={profile.location}
-                        placeholder="City, State or Region"
+                        placeholder="e.g. Wayanad, Idukki, Thrissur"
                     />
                 </div>
                 <button

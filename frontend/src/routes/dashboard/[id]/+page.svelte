@@ -144,13 +144,30 @@
                         ></textarea>
                     </div>
                     <div class="form-group">
-                        <label for="region">Region (optional)</label>
-                        <input
-                            id="region"
-                            type="text"
-                            bind:value={region}
-                            placeholder="e.g. South Asia, Tropical"
-                        />
+                        <label for="region"
+                            >District(s) in Kerala (optional)</label
+                        >
+                        <select id="region" bind:value={region}>
+                            <option value="">-- Select District --</option>
+                            <option value="Thiruvananthapuram"
+                                >Thiruvananthapuram</option
+                            >
+                            <option value="Kollam">Kollam</option>
+                            <option value="Pathanamthitta"
+                                >Pathanamthitta</option
+                            >
+                            <option value="Alappuzha">Alappuzha</option>
+                            <option value="Kottayam">Kottayam</option>
+                            <option value="Idukki">Idukki</option>
+                            <option value="Ernakulam">Ernakulam</option>
+                            <option value="Thrissur">Thrissur</option>
+                            <option value="Palakkad">Palakkad</option>
+                            <option value="Malappuram">Malappuram</option>
+                            <option value="Kozhikode">Kozhikode</option>
+                            <option value="Wayanad">Wayanad</option>
+                            <option value="Kannur">Kannur</option>
+                            <option value="Kasaragod">Kasaragod</option>
+                        </select>
                     </div>
                     <button
                         class="btn btn-primary btn-block"
