@@ -1,0 +1,251 @@
+/* === FARMER CHATBOT — GLOBAL STYLES === */
+/* Earthy green theme. No gradients. No transparency. Flat & solid. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary: #2D6A4F;
+  --primary-light: #52B788;
+  --primary-dark: #1B4332;
+  --secondary: #8B6914;
+  --bg: #FAFAF5;
+  --surface: #FFFFFF;
+  --text: #1B1B1B;
+  --text-secondary: #555555;
+  --text-light: #888888;
+  --border: #D4D4C8;
+  --error: #D32F2F;
+  --success: #388E3C;
+  --warning: #F57C00;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  height: 100%;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  outline: none;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary);
+}
+
+/* === BUTTONS === */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover {
+  background: #f0f0ea;
+}
+
+.btn-danger {
+  background: var(--error);
+  color: #fff;
+}
+.btn-danger:hover {
+  background: #b71c1c;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* === FORM GROUPS === */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.form-error {
+  color: var(--error);
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+
+/* === CARDS === */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+/* === AUTH PAGE LAYOUT === */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+.auth-card h1 {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+  color: var(--primary-dark);
+}
+.auth-card p.subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-size: 0.9rem;
+}
+.auth-card .logo {
+  font-size: 2rem;
+  margin-bottom: 12px;
+}
+
+/* === ALERT === */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+.alert-error {
+  background: #fde8e8;
+  color: var(--error);
+  border: 1px solid #f5c6c6;
+}
+.alert-success {
+  background: #e8f5e9;
+  color: var(--success);
+  border: 1px solid #c8e6c9;
+}
+
+/* === STATS CARDS === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+}
+.stat-card .stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.stat-card .stat-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* === BADGE === */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-pending {
+  background: #fff3e0;
+  color: var(--warning);
+}
+.badge-classified {
+  background: #e8f5e9;
+  color: var(--success);
+}
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

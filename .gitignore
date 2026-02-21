@@ -1,0 +1,66 @@
+# ===== Python / Backend =====
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+*.db
+# ===== ML / RAG Artifacts =====
+*.faiss
+*.pkl
+*.pt
+*.bin
+*.onnx
+*.h5
+*.ckpt
+*.model
+*.safetensors
+
+# vector databases
+index/
+indexes/
+vector_store/
+faiss_index/
+rag_index/
+
+# embeddings cache
+embeddings/
+cache/
+
+# ===== Node / Frontend =====
+node_modules/
+.output/
+.vercel/
+.netlify/
+.wrangler/
+.svelte-kit/
+build/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# ===== Environment =====
+.env
+.env.*
+!.env.example
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.iml
+
+# ===== Misc =====
+*.log
+.gemini/
+
+
