@@ -248,26 +248,40 @@ async def analyze_message(
         response["follow_up"] = True
         return response
 
-    # 1. Feature Extraction
+    # 1. Feature Extraction (Still useful for fallback/questions)
     features = diagnostic_engine.extract_features(query_text)
     
-    # 2. Check if enough features for diagnosis (Query SQL DB)
-    found_match = await diagnostic_engine.find_match(db, features)
+    # 2. RAG Identify: Use FAISS search on symptoms to find top matching disease
+    if request and hasattr(request.app.state, "rag_service"):
+        rag_service = request.app.state.rag_service
+        if rag_service.is_initialized:
+            # Create a hybrid query for FAISS. 
+            # The knowledge index is heavily keyword-based (crop, position, pattern).
+            # By injecting the normalized features (like 'tapioca' instead of 'cassava') up front, 
+            # we drastically reduce the L2 distance for correct matches while preserving the semantic context.
+            hybrid_query = f"{features.get('crop', '')} {features.get('position', '')} {features.get('pattern', '')} {features.get('weather', '')} {query_text}".strip()
+            
+            rag_match = await rag_service.identify_disease(hybrid_query)
+            
+            if rag_match:
+                response["disease_name"] = rag_match["disease_name"]
+                response["crop_name"] = rag_match["crop"]
+                
+                pos = rag_match.get('position') or 'various plant parts'
+                pat = rag_match.get('pattern') or 'general infection'
+                weather = rag_match.get('weather') or 'typical conditions'
+                
+                response["response_text"] = (
+                    f"**IDENTIFIED: {rag_match['disease_name'].upper()} in {rag_match['crop'].upper()}**\n\n"
+                    f"**Symptoms Profile:** Usually appears on {pos} presenting with {pat}.\n"
+                    f"**Weather Context:** {weather}\n\n"
+                    f"**Immediate Action:** {rag_match['treatment_summary']}\n\n"
+                    "Generating detailed scientific treatment explanation..."
+                )
+                response["is_diagnosis"] = True
+                return response
 
-    if found_match:
-        response["disease_name"] = found_match.disease_name
-        response["crop_name"] = found_match.crop
-        response["response_text"] = (
-            f"**IDENTIFIED: {found_match.disease_name.upper()} in {found_match.crop.upper()}**\n\n"
-            f"**Symptoms Matched:** {found_match.symptom} ({found_match.position}, {found_match.pattern})\n"
-            f"**Weather Context:** {found_match.weather}\n\n"
-            f"**Immediate Action:** {found_match.treatment_summary}\n\n"
-            "Searching for detailed scientific treatment explanation..."
-        )
-        response["is_diagnosis"] = True
-        return response
-
-    # 3. If no match, check for ambiguity or missing info
+    # 3. If no RAG match, check for ambiguity or missing info using basic features
     if not features["crop"]:
         response["response_text"] = "To help accurately, I need to know which crop you are asking about (e.g., Tomato, Coconut, Pepper)."
         response["follow_up"] = True

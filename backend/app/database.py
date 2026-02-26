@@ -8,6 +8,18 @@ db_url = settings.DATABASE_URL
 if db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# Supabase pooler (pgbouncer) compatibility for asyncpg
+if "pooler.supabase.com" in db_url:
+    import re
+    # Extract the project ref from the username (e.g., postgres.armsvahocpfwzqdatuuo)
+    match = re.search(r"postgres\.([a-z0-9]+):", db_url)
+    if match:
+        project_ref = match.group(1)
+        # Rewrite to direct connection string: db.[project_ref].supabase.co
+        db_url = re.sub(r"@[^:]+:\d+", f"@db.{project_ref}.supabase.co:5432", db_url)
+        # Remove the project ref from the username
+        db_url = db_url.replace(f"postgres.{project_ref}:", "postgres:")
+
 engine = create_async_engine(db_url, echo=False, pool_size=5, max_overflow=10)
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
