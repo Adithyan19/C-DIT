@@ -6,6 +6,8 @@ from sqlalchemy import (
     Text,
     DateTime,
     Float,
+    Integer,
+    Boolean,
     ForeignKey,
     JSON,
     Enum as SAEnum,
@@ -124,4 +126,16 @@ class DiseaseKnowledge(Base):
     treatment_summary = Column(Text, nullable=False)
     image_urls = Column(JSON, default=list)
     region = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class LeafImage(Base):
+    __tablename__ = "leaf_images"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    image_path = Column(Text, nullable=False, unique=True)
+    predicted = Column(String(255), nullable=True)
+    confidence = Column(Float, nullable=True)
+    verified = Column(Boolean, default=False)
+    true_label = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

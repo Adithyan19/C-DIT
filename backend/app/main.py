@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.database import engine, Base, AsyncSessionLocal
 from app.seed import seed_superadmin, seed_disease_knowledge
-from app.routers import auth_router, user_router, chat_router, mitl_router, admin_router
+from app.routers import auth_router, user_router, chat_router, mitl_router, admin_router, external_router
 from app.rag_service import RAGService
 from app.models import DiseaseKnowledge
 
@@ -96,6 +96,7 @@ app.include_router(user_router.router)
 app.include_router(chat_router.router)
 app.include_router(mitl_router.router)
 app.include_router(admin_router.router)
+app.include_router(external_router.router)
 
 
 @app.get("/")

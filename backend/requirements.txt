@@ -11,9 +11,13 @@ pydantic[email]
 pydantic-settings
 aiofiles
 torch
+torchvision
+Pillow
+scikit-learn
+numpy
 transformers
 accelerate
 sentence-transformers
 faiss-cpu
 datasets
- tqdm
+tqdm

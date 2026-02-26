@@ -21,6 +21,7 @@ from sqlalchemy import select
 from app.models import DiseaseKnowledge, UnknownDisease, Message
 import uuid
 from datetime import datetime
+from app.rice_engine import predict_rice_disease
 FOLLOW_UP_QUESTIONS = [
     "Can you describe the color and pattern of the affected areas on the plant?",
     "Which crop is affected? (e.g., coconut, rubber, pepper, banana, rice, arecanut, ginger, tapioca)",
@@ -250,6 +251,38 @@ async def analyze_message(
 
     # 1. Feature Extraction
     features = diagnostic_engine.extract_features(query_text)
+
+    # 1a. Rice ResNet Integration (if image provided and crop is rice)
+    if image_url and features["crop"] == "rice":
+        rice_result = await predict_rice_disease(db, image_url)
+        if "error" not in rice_result:
+            if rice_result["predicted"] == "unknown":
+                response["is_unknown"] = True
+                response["response_text"] = (
+                    "I see you've uploaded a photo of your rice crop. "
+                    "I can't confidently identify the issue from the image, but I've flagged it for expert review."
+                )
+            else:
+                response["disease_name"] = rice_result["predicted"]
+                response["crop_name"] = "rice"
+                response["is_diagnosis"] = True
+                # Use ResNet prediction to find structured treatment info
+                found_match = await diagnostic_engine.find_match(db, {"crop": "rice", "pattern": rice_result["predicted"], "position": "", "weather": ""})
+                
+                if found_match:
+                    response["response_text"] = (
+                        f"**RESNET DIAGNOSIS: {found_match.disease_name.upper()} in RICE**\n\n"
+                        f"**Confidence:** {rice_result['confidence']:.2f}\n"
+                        f"**Immediate Action:** {found_match.treatment_summary}\n\n"
+                        "Our ResNet model is quite certain about this diagnosis."
+                    )
+                else:
+                    response["response_text"] = (
+                        f"**RESNET DIAGNOSIS: {rice_result['predicted'].upper()} in RICE**\n\n"
+                        f"**Confidence:** {rice_result['confidence']:.2f}\n"
+                        "I've identified the disease using our ResNet model, but I'm still searching for specific treatment guidelines in our database."
+                    )
+            return response
     
     # 2. Check if enough features for diagnosis (Query SQL DB)
     found_match = await diagnostic_engine.find_match(db, features)
