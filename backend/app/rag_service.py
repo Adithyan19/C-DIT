@@ -232,3 +232,51 @@ Treatment Guide:"""
             answer = response.strip()
 
         return answer
+        
+    async def generate_chat_response(self, user_text: str) -> str:
+        """Generate a conversational response for small talk/greetings using the LLM."""
+        if not self.is_initialized:
+            return "Hello! I am your agricultural assistant. How can I help you with your crops today?"
+
+        import torch
+
+        # CPU Fallback - Too slow to run full LLM for small talk, just return a canned response
+        if not torch.cuda.is_available():
+            logger.info("CPU detected. Skipping LLM generation for chat and returning canned response.")
+            return "Hello there! I'm here to help you identify and treat crop diseases. Please describe any symptoms you are seeing on your plants, such as yellowing leaves or spots!"
+
+        await self.load_model()
+
+        prompt = f"""<|system|>
+You are a friendly agricultural AI assistant for farmers in Kerala. 
+Always reply in exactly 1 or 2 short sentences. Do NOT offer to explain your responsibilities.
+</s>
+<|user|>
+Hello there</s>
+<|assistant|>
+Hello! I am your agricultural assistant. How can I help you with your crops today?</s>
+<|user|>
+{user_text}</s>
+<|assistant|>
+"""
+
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+
+        outputs = await asyncio.to_thread(
+            self.model.generate,
+            **inputs,
+            max_new_tokens=40,
+            temperature=0.8,
+            do_sample=True,
+            pad_token_id=self.tokenizer.eos_token_id
+        )
+
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Parse the assistant's text
+        if "<|assistant|>" in response:
+            answer = response.split("<|assistant|>")[-1].strip()
+        else:
+            answer = response.strip()
+            
+        return answer

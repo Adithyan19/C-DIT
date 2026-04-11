@@ -14,25 +14,34 @@ async def main():
         await rag_service.rebuild_index(db)
         print("Index rebuilt with DB documents.")
         
-        # Mock message history
-        conversation_messages = []
-        
         # The user's query
-        query_text = "I am growing cassava in my field. After about one to two months of growth, many plants started showing pale yellow and light-green patches on the leaves. The leaves look mottled and uneven in color. Some leaves are smaller than normal and slightly twisted. A few plants are not growing properly and appear stunted compared to healthy ones nearby. I also noticed a lot of tiny white insects sitting under the leaves, especially during warm days. The problem seems to be spreading slowly across the field. What disease could this be? How can I confirm it and what treatment (organic and chemical) should I apply?"
+        query_text = "I’m growing bananas and something is wrong"
         
-        # 1. Simulate disease_engine logic
-        features = diagnostic_engine.extract_features(query_text.lower())
-        print(f"Extracted Features: {features}")
+        # 1. Simulate disease_engine logic via full analyze_message
+        msg = Message(id=uuid.uuid4(), conversation_id=uuid.uuid4(), sender=MessageSender.user, content_type=ContentType.text, text_content=query_text, created_at=datetime.datetime.utcnow())
         
-        hybrid_query = f"{features.get('crop', '')} {features.get('position', '')} {features.get('pattern', '')} {features.get('weather', '')} {query_text}".strip()
-        print(f"Hybrid Query: {hybrid_query}")
+        # Create a mock request to hold app.state.rag_service
+        class MockApp:
+            state = type('obj', (object,), {'rag_service': rag_service})
+        class MockRequest:
+            app = MockApp()
+            
+        request = MockRequest()
         
-        rag_match = await rag_service.identify_disease(hybrid_query)
+        response = await analyze_message(
+            db=db,
+            text=query_text,
+            image_url=None,
+            conversation_messages=[],
+            request=request
+        )
         
-        if rag_match:
-            print(f"✅ FOUND MATCH: {rag_match['disease_name']}")
-        else:
-            print("❌ NO MATCH FOUND within threshold")
+        print("--- FULL PIPELINE RESPONSE ---")
+        print(f"Is Diagnosis: {response['is_diagnosis']}")
+        print(f"Is Unknown: {response['is_unknown']}")
+        print(f"Is Follow Up: {response['follow_up']}")
+        print(f"Disease Name: {response['disease_name']}")
+        print(f"Response Text: {response['response_text']}")
 
 if __name__ == "__main__":
     asyncio.run(main())
