@@ -72,9 +72,20 @@ class RAGService:
                 f"Weather: {item.weather}\n"
                 f"Treatment: {item.treatment_summary}"
             )
-            self.documents.append(context_text)
+            # Store metadata along with the rich text context
+            self.documents.append({
+                "context": context_text,
+                "crop": item.crop,
+                "disease_name": item.disease_name,
+                "symptom": item.symptom,
+                "position": item.position,
+                "pattern": item.pattern,
+                "weather": item.weather,
+                "treatment_summary": item.treatment_summary
+            })
             # Embed the disease and symptoms for retrieval
-            texts_to_embed.append(f"{item.crop} {item.disease_name} {item.symptom} {item.position} {item.pattern}")
+            # Focusing heavily on symptoms, position, pattern and weather for identification
+            texts_to_embed.append(f"{item.crop} {item.symptom} {item.position} {item.pattern} {item.weather}")
 
         # Build index in batches
         batch_size = 128
@@ -91,6 +102,42 @@ class RAGService:
         
         logger.info("Local knowledge base index built successfully")
         logger.info(f"FAISS index created with {self.index.ntotal} documents")
+
+    async def rebuild_index(self, db_session):
+        """Rebuild the index by fetching all knowledge from the database."""
+        from sqlalchemy import select
+        from app.models import DiseaseKnowledge
+        result = await db_session.execute(select(DiseaseKnowledge))
+        knowledge_list = result.scalars().all()
+        await self.build_index_from_knowledge(knowledge_list)
+
+    async def identify_disease(self, query_text: str, threshold: float = 1.25):
+        """Identify a disease from a symptom description using FAISS."""
+        if not self.index or not self.embedder:
+            return None
+            
+        import numpy as np
+        import asyncio
+        
+        # Embed the farmer's query
+        query_embedding = await asyncio.to_thread(self.embedder.encode, [query_text])
+        
+        # Search for the top 1 match
+        distances, indices = await asyncio.to_thread(
+            self.index.search, np.array(query_embedding).astype('float32'), 1
+        )
+        
+        if len(distances) > 0 and len(distances[0]) > 0:
+            distance = distances[0][0]
+            index = indices[0][0]
+            
+            logger.info(f"RAG Identify FAISS Distance: {distance} (Threshold: {threshold})")
+            
+            # Lower distance means better match in L2 space
+            if distance < threshold and index < len(self.documents):
+                return self.documents[index]
+                
+        return None
 
     async def load_model(self):
         """Lazy-load LLM only when needed."""
@@ -119,8 +166,13 @@ class RAGService:
 
         import numpy as np
         query_embedding = self.embedder.encode([query])
-        distances, indices = self.index.search(np.array(query_embedding), top_k)
-        retrieved_docs = [self.documents[i] for i in indices[0]]
+        distances, indices = self.index.search(np.array(query_embedding).astype('float32'), top_k)
+        
+        retrieved_docs = []
+        for i in indices[0]:
+            if i < len(self.documents):
+                retrieved_docs.append(self.documents[i]["context"])
+                
         return "\n\n".join(retrieved_docs)
 
     async def generate_answer(self, disease_name: str, crop_name: str, top_k=5):
@@ -179,4 +231,52 @@ Treatment Guide:"""
         else:
             answer = response.strip()
 
+        return answer
+        
+    async def generate_chat_response(self, user_text: str) -> str:
+        """Generate a conversational response for small talk/greetings using the LLM."""
+        if not self.is_initialized:
+            return "Hello! I am your agricultural assistant. How can I help you with your crops today?"
+
+        import torch
+
+        # CPU Fallback - Too slow to run full LLM for small talk, just return a canned response
+        if not torch.cuda.is_available():
+            logger.info("CPU detected. Skipping LLM generation for chat and returning canned response.")
+            return "Hello there! I'm here to help you identify and treat crop diseases. Please describe any symptoms you are seeing on your plants, such as yellowing leaves or spots!"
+
+        await self.load_model()
+
+        prompt = f"""<|system|>
+You are a friendly agricultural AI assistant for farmers in Kerala. 
+Always reply in exactly 1 or 2 short sentences. Do NOT offer to explain your responsibilities.
+</s>
+<|user|>
+Hello there</s>
+<|assistant|>
+Hello! I am your agricultural assistant. How can I help you with your crops today?</s>
+<|user|>
+{user_text}</s>
+<|assistant|>
+"""
+
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+
+        outputs = await asyncio.to_thread(
+            self.model.generate,
+            **inputs,
+            max_new_tokens=40,
+            temperature=0.8,
+            do_sample=True,
+            pad_token_id=self.tokenizer.eos_token_id
+        )
+
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Parse the assistant's text
+        if "<|assistant|>" in response:
+            answer = response.split("<|assistant|>")[-1].strip()
+        else:
+            answer = response.strip()
+            
         return answer

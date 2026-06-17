@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
@@ -92,6 +92,7 @@ async def get_pending_detail(
 async def classify_disease(
     disease_id: str,
     req: ClassifyDiseaseRequest,
+    request: Request,
     current_user: User = Depends(get_mitl_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -130,4 +131,11 @@ async def classify_disease(
     await db.commit()
     await db.refresh(disease)
 
+    # Immediately rebuild the RAG index to include the newly classified disease
+    if hasattr(request.app.state, "rag_service"):
+        rag_service = request.app.state.rag_service
+        # Run rebuild as background task so we don't block the API response
+        import asyncio
+        asyncio.create_task(rag_service.rebuild_index(db))
+    
     return UnknownDiseaseResponse.model_validate(disease)

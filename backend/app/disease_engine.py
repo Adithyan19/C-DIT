@@ -242,43 +242,87 @@ async def analyze_message(
         query_text += f" {text}"
     query_text = query_text.strip().lower()
 
-    if len(query_text) < 10 and not image_url:
-        question_idx = min(len(conversation_messages) // 2, len(FOLLOW_UP_QUESTIONS) - 1)
-        response["response_text"] = "I need a bit more detail to help. " + FOLLOW_UP_QUESTIONS[question_idx]
-        response["follow_up"] = True
-        return response
+    # 0. Conversational Interception (Small Talk)
+    # Check if the query is a basic greeting or non-diagnostic interaction
+    greetings = ["hi", "hello", "hey", "good morning", "good evening", "good afternoon", "namaskaram"]
+    gratitude = ["thank you", "thanks", "helpful", "appreciate"]
+    general = ["help", "who are you", "what can you do"]
+    
+    is_small_talk = False
+    
+    # Only intercept if it's a very short query that matches conversational intents, 
+    # to avoid intercepting actual disease descriptions that happen to contain the word "help"
+    text_lower = (text or "").lower().strip()
+    if text and len(text.strip()) < 60:
+        if any(word in text_lower for word in greetings + gratitude + general):
+            is_small_talk = True
+            
+    if is_small_talk:
+        if request and hasattr(request.app.state, "rag_service"):
+            rag_service = request.app.state.rag_service
+            if rag_service.is_initialized:
+                chat_reply = await rag_service.generate_chat_response(text)
+                response["response_text"] = chat_reply
+                return response
 
-    # 1. Feature Extraction
+    # 1. Feature Extraction (Still useful for fallback/questions)
     features = diagnostic_engine.extract_features(query_text)
     
-    # 2. Check if enough features for diagnosis (Query SQL DB)
-    found_match = await diagnostic_engine.find_match(db, features)
+    # 2. Check for ambiguity or missing info using basic features BEFORE attempting a diagnosis
+    # Only ask basic questions if the user hasn't provided much detail in their CURRENT message.
+    # If they wrote a long paragraph (e.g. > 50 chars) about an unknown crop (like Yam), 
+    # we don't want to get stuck in an infinite loop asking "Which crop?". We should escalate it or RAG it instead.
+    if text and len(text.strip()) < 50:
+        if not features["crop"]:
+            response["response_text"] = "To help accurately, I need to know which crop you are asking about (e.g., Tomato, Coconut, Pepper)."
+            response["follow_up"] = True
+            return response
+        
+        # Changed 'or' to 'and' so we only interrogate them if they provided NEITHER location nor description
+        if not features["position"] and not features["pattern"]:
+            response["response_text"] = "I've noted the crop, but could you describe where the symptoms are located (e.g., leaves, stem) or what they look like?"
+            response["follow_up"] = True
+            return response
+            
+    # 3. RAG Identify: Use FAISS search on symptoms to find top matching disease
+    if request and hasattr(request.app.state, "rag_service"):
+        rag_service = request.app.state.rag_service
+        if rag_service.is_initialized:
+            # Create a hybrid query for FAISS. 
+            hybrid_query = f"{features.get('crop', '')} {features.get('position', '')} {features.get('pattern', '')} {features.get('weather', '')} {query_text}".strip()
+            
+            rag_match = await rag_service.identify_disease(hybrid_query)
+            
+            if rag_match:
+                is_valid_match = False
+                rag_crop = rag_match.get("crop", "").lower()
+                extracted_crop = features.get("crop", "")
+                
+                # Validation: The matched crop MUST be in the user's text, or exactly match the extracted feature.
+                if extracted_crop and extracted_crop == rag_crop:
+                    is_valid_match = True
+                elif rag_crop and rag_crop in query_text:
+                    is_valid_match = True
+                    
+                if is_valid_match:
+                    response["disease_name"] = rag_match["disease_name"]
+                    response["crop_name"] = rag_match["crop"]
+                    
+                    pos = rag_match.get('position') or 'various plant parts'
+                    pat = rag_match.get('pattern') or 'general infection'
+                    weather = rag_match.get('weather') or 'typical conditions'
+                    
+                    response["response_text"] = (
+                        f"**IDENTIFIED: {rag_match['disease_name'].upper()} in {rag_match['crop'].upper()}**\n\n"
+                        f"**Symptoms Profile:** Usually appears on {pos} presenting with {pat}.\n"
+                        f"**Weather Context:** {weather}\n\n"
+                        f"**Immediate Action:** {rag_match['treatment_summary']}\n\n"
+                        "Generating detailed scientific treatment explanation..."
+                    )
+                    response["is_diagnosis"] = True
+                    return response
 
-    if found_match:
-        response["disease_name"] = found_match.disease_name
-        response["crop_name"] = found_match.crop
-        response["response_text"] = (
-            f"**IDENTIFIED: {found_match.disease_name.upper()} in {found_match.crop.upper()}**\n\n"
-            f"**Symptoms Matched:** {found_match.symptom} ({found_match.position}, {found_match.pattern})\n"
-            f"**Weather Context:** {found_match.weather}\n\n"
-            f"**Immediate Action:** {found_match.treatment_summary}\n\n"
-            "Searching for detailed scientific treatment explanation..."
-        )
-        response["is_diagnosis"] = True
-        return response
-
-    # 3. If no match, check for ambiguity or missing info
-    if not features["crop"]:
-        response["response_text"] = "To help accurately, I need to know which crop you are asking about (e.g., Tomato, Coconut, Pepper)."
-        response["follow_up"] = True
-        return response
-    
-    if not features["position"] or not features["pattern"]:
-        response["response_text"] = "I've noted the crop, but could you describe the *position* (e.g., lower leaves) and *pattern* (e.g., spots or rings) of the symptoms?"
-        response["follow_up"] = True
-        return response
-
-    # 4. Fallback to Unknown if still nothing
+    # 4. Fallback to Unknown for Manual Expert Review
     response["response_text"] = "I can't find a direct match in my structured records, but I am consulting my expert database for a broader search..."
     response["is_unknown"] = True 
     return response
