@@ -50,6 +50,7 @@ async def get_messages(
     conversation_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,
 ):
     # Verify conversation belongs to user
     result = await db.execute(
@@ -67,7 +68,19 @@ async def get_messages(
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at)
     )
-    return [MessageResponse.model_validate(m) for m in result.scalars().all()]
+    messages = result.scalars().all()
+    
+    # Translate on the fly to Malayalam for the user to see
+    translated_responses = []
+    translation_service = getattr(request.app.state, "translation_service", None) if request else None
+
+    for m in messages:
+        resp = MessageResponse.model_validate(m)
+        if resp.text_content and translation_service and translation_service.is_initialized:
+            resp.text_content = await translation_service.translate_en_to_ml(resp.text_content)
+        translated_responses.append(resp)
+        
+    return translated_responses
 
 
 @router.post("/messages", response_model=List[MessageResponse])
@@ -113,6 +126,11 @@ async def send_message(
         content_type = ContentType.image
     elif has_voice:
         content_type = ContentType.voice
+
+    # Translate incoming Malayalam text to English before storing
+    translation_service = getattr(request.app.state, "translation_service", None) if request else None
+    if has_text and text and translation_service and translation_service.is_initialized:
+        text = await translation_service.translate_ml_to_en(text)
 
     # Upload files
     image_url = None
@@ -215,6 +233,7 @@ async def send_message(
 
     # 6. Save bot message
     async with AsyncSessionLocal() as bot_db:
+        # Save English text in DB
         bot_msg = Message(
             id=uuid.uuid4(),
             conversation_id=conv.id,
@@ -227,9 +246,14 @@ async def send_message(
         await bot_db.commit()
         await bot_db.refresh(bot_msg)
         
-        # Also need to refresh user_msg in this session context if we want to return it
-        # But for model_validate, we can just use the memory objects
-        return [
-            MessageResponse.model_validate(user_msg),
-            MessageResponse.model_validate(bot_msg),
-        ]
+        user_resp = MessageResponse.model_validate(user_msg)
+        bot_resp = MessageResponse.model_validate(bot_msg)
+        
+        # Translate back to Malayalam for the response
+        if translation_service and translation_service.is_initialized:
+            if user_resp.text_content:
+                user_resp.text_content = await translation_service.translate_en_to_ml(user_resp.text_content)
+            if bot_resp.text_content:
+                bot_resp.text_content = await translation_service.translate_en_to_ml(bot_resp.text_content)
+
+        return [user_resp, bot_resp]

@@ -71,6 +71,12 @@ async def lifespan(app: FastAPI):
         await rag_service.initialize()
         await rag_service.build_index_from_knowledge(knowledge_list)
         app.state.rag_service = rag_service
+
+        # Initialize Translation Service
+        from app.translation import TranslationService
+        translation_service = TranslationService()
+        await translation_service.initialize()
+        app.state.translation_service = translation_service
     yield
 
 
